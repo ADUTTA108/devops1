@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { CheckCircle, XCircle, Loader } from "lucide-react";
 
 export const HealthStatus = ({ health }) => {
   if (!health) {
@@ -13,7 +13,8 @@ export const HealthStatus = ({ health }) => {
     );
   }
 
-  const isHealthy = health.status === 'healthy' && health.checks?.storage === 'ok';
+  const isHealthy =
+    health.status === "healthy" && health.checks?.storage === "ok";
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -38,7 +39,7 @@ export const HealthStatus = ({ health }) => {
         <div className="flex items-center justify-between">
           <span className="font-medium">Storage (S3):</span>
           <div className="flex items-center gap-2">
-            {health.checks?.storage === 'ok' ? (
+            {health.checks?.storage === "ok" ? (
               <>
                 <CheckCircle className="text-green-500" size={20} />
                 <span className="text-green-600">OK</span>

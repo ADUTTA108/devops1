@@ -1,8 +1,8 @@
-import axios from 'axios';
-import * as Sentry from '@sentry/react';
-import { trace } from '@opentelemetry/api';
+import axios from "axios";
+import * as Sentry from "@sentry/react";
+import { trace } from "@opentelemetry/api";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -13,11 +13,11 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const span = trace.getActiveSpan();
   const traceId = span?.spanContext().traceId;
-  
+
   if (traceId) {
-    config.headers['X-Trace-Id'] = traceId;
+    config.headers["X-Trace-Id"] = traceId;
   }
-  
+
   return config;
 });
 
@@ -32,7 +32,7 @@ apiClient.interceptors.response.use(
       },
     });
     return Promise.reject(error);
-  }
+  },
 );
 
 export interface HealthResponse {
@@ -56,16 +56,17 @@ export interface DownloadStartResponse {
 }
 
 export const api = {
-  getHealth: () => apiClient.get<HealthResponse>('/health'),
-  
+  getHealth: () => apiClient.get<HealthResponse>("/health"),
+
   checkDownload: (fileId: number, sentryTest = false) =>
-    apiClient.post<DownloadCheckResponse>('/v1/download/check', 
+    apiClient.post<DownloadCheckResponse>(
+      "/v1/download/check",
       { file_id: fileId },
-      { params: sentryTest ? { sentry_test: 'true' } : {} }
+      { params: sentryTest ? { sentry_test: "true" } : {} },
     ),
-  
+
   startDownload: (fileId: number) =>
-    apiClient.post<DownloadStartResponse>('/v1/download/start', {
+    apiClient.post<DownloadStartResponse>("/v1/download/start", {
       file_id: fileId,
     }),
 };

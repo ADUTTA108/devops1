@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Activity, TrendingUp, Clock } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { Activity, TrendingUp, Clock } from "lucide-react";
 
 export const PerformanceMetrics = () => {
   const [metrics, setMetrics] = useState({
@@ -12,8 +12,8 @@ export const PerformanceMetrics = () => {
     // Simulate performance tracking
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
-        if (entry.entryType === 'navigation') {
-          setMetrics(prev => ({
+        if (entry.entryType === "navigation") {
+          setMetrics((prev) => ({
             ...prev,
             avgResponseTime: Math.round(entry.responseEnd - entry.requestStart),
           }));
@@ -21,7 +21,7 @@ export const PerformanceMetrics = () => {
       }
     });
 
-    observer.observe({ entryTypes: ['navigation'] });
+    observer.observe({ entryTypes: ["navigation"] });
     return () => observer.disconnect();
   }, []);
 
@@ -34,17 +34,23 @@ export const PerformanceMetrics = () => {
       <div className="grid grid-cols-3 gap-4">
         <div className="text-center">
           <Clock className="mx-auto text-blue-500 mb-2" size={24} />
-          <p className="text-2xl font-bold text-gray-800">{metrics.avgResponseTime}ms</p>
+          <p className="text-2xl font-bold text-gray-800">
+            {metrics.avgResponseTime}ms
+          </p>
           <p className="text-xs text-gray-500">Avg Response</p>
         </div>
         <div className="text-center">
           <TrendingUp className="mx-auto text-green-500 mb-2" size={24} />
-          <p className="text-2xl font-bold text-gray-800">{metrics.successRate}%</p>
+          <p className="text-2xl font-bold text-gray-800">
+            {metrics.successRate}%
+          </p>
           <p className="text-xs text-gray-500">Success Rate</p>
         </div>
         <div className="text-center">
           <Activity className="mx-auto text-purple-500 mb-2" size={24} />
-          <p className="text-2xl font-bold text-gray-800">{metrics.totalRequests}</p>
+          <p className="text-2xl font-bold text-gray-800">
+            {metrics.totalRequests}
+          </p>
           <p className="text-xs text-gray-500">Total Requests</p>
         </div>
       </div>

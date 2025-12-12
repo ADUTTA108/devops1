@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import * as Sentry from '@sentry/react';
-import { tracer } from '../tracing';
-import { api } from '../api/client';
-import { HealthStatus } from './HealthStatus';
-import { DownloadJobs } from './DownloadJobs';
-import { ErrorLog } from './ErrorLog';
-import { PerformanceMetrics } from './PerformanceMetrics';
-import { AlertCircle, Download, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from "react";
+import * as Sentry from "@sentry/react";
+import { tracer } from "../tracing";
+import { api } from "../api/client";
+import { HealthStatus } from "./HealthStatus";
+import { DownloadJobs } from "./DownloadJobs";
+import { ErrorLog } from "./ErrorLog";
+import { PerformanceMetrics } from "./PerformanceMetrics";
+import { AlertCircle, Download, ExternalLink } from "lucide-react";
 
 const DashboardComponent = () => {
   const [health, setHealth] = useState(null);
@@ -14,63 +14,75 @@ const DashboardComponent = () => {
   const [errors, setErrors] = useState([]);
 
   useEffect(() => {
-    const span = tracer.startSpan('dashboard-load');
-    
+    const span = tracer.startSpan("dashboard-load");
+
     const fetchHealth = async () => {
       try {
         const response = await api.getHealth();
         setHealth(response.data);
       } catch (error) {
-        console.error('Health check failed:', error);
-        setErrors(prev => [...prev, {
-          timestamp: new Date().toISOString(),
-          message: 'Health check failed',
-          error
-        }]);
+        console.error("Health check failed:", error);
+        setErrors((prev) => [
+          ...prev,
+          {
+            timestamp: new Date().toISOString(),
+            message: "Health check failed",
+            error,
+          },
+        ]);
       }
     };
 
     fetchHealth();
     const interval = setInterval(fetchHealth, 5000);
-    
+
     span.end();
     return () => clearInterval(interval);
   }, []);
 
   const handleTestError = async () => {
-    const span = tracer.startSpan('sentry-test');
+    const span = tracer.startSpan("sentry-test");
     try {
       await api.checkDownload(70000, true);
     } catch (error) {
-      setErrors(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        message: 'Sentry test error triggered',
-        traceId: span.spanContext().traceId,
-        error: error.response?.data
-      }]);
+      setErrors((prev) => [
+        ...prev,
+        {
+          timestamp: new Date().toISOString(),
+          message: "Sentry test error triggered",
+          traceId: span.spanContext().traceId,
+          error: error.response?.data,
+        },
+      ]);
     } finally {
       span.end();
     }
   };
 
   const handleStartDownload = async () => {
-    const span = tracer.startSpan('start-download');
+    const span = tracer.startSpan("start-download");
     const fileId = Math.floor(Math.random() * 100000);
-    
+
     try {
       const response = await api.startDownload(fileId);
-      setJobs(prev => [...prev, {
-        ...response.data,
-        timestamp: new Date().toISOString(),
-        traceId: span.spanContext().traceId,
-      }]);
+      setJobs((prev) => [
+        ...prev,
+        {
+          ...response.data,
+          timestamp: new Date().toISOString(),
+          traceId: span.spanContext().traceId,
+        },
+      ]);
     } catch (error) {
-      setErrors(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        message: 'Download failed',
-        traceId: span.spanContext().traceId,
-        error: error.response?.data
-      }]);
+      setErrors((prev) => [
+        ...prev,
+        {
+          timestamp: new Date().toISOString(),
+          message: "Download failed",
+          traceId: span.spanContext().traceId,
+          error: error.response?.data,
+        },
+      ]);
     } finally {
       span.end();
     }
@@ -86,7 +98,8 @@ const DashboardComponent = () => {
             📊 Observability Dashboard
           </h1>
           <p className="text-gray-600">
-            Monitor your download service with Sentry error tracking and OpenTelemetry distributed tracing
+            Monitor your download service with Sentry error tracking and
+            OpenTelemetry distributed tracing
           </p>
         </div>
 

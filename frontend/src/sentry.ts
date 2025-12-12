@@ -1,12 +1,10 @@
-import * as Sentry from '@sentry/react';
-
-
+import * as Sentry from "@sentry/react";
 
 export const initSentry = () => {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
-  
+
   if (!dsn) {
-    console.warn('Sentry DSN not configured');
+    console.warn("Sentry DSN not configured");
     return;
   }
 
@@ -30,5 +28,5 @@ export const initSentry = () => {
     },
   });
 
-  console.log('✅ Sentry initialized');
+  console.log("✅ Sentry initialized");
 };
