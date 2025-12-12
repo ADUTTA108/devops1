@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:e2e": "node --experimental-transform-types scripts/run-e2e.ts",
+    "upload:test-files": "node --env-file=.env --experimental-transform-types scripts/upload-test-files.ts",
     "docker:dev": "docker compose -f docker/compose.dev.yml up --build",
     "docker:prod": "docker compose -f docker/compose.prod.yml up --build -d"
   },
