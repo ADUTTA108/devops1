@@ -67,6 +67,7 @@ The latency variation is intentional - that's what makes this interesting. The s
 ## Storage: Why MinIO?
 
 We could use AWS S3, but:
+
 - Self-hosted option (needed for local dev)
 - S3-compatible API (same code works everywhere)
 - Easy to run in Docker
@@ -77,6 +78,7 @@ Real production? Could swap AWS S3, Google Cloud Storage, or Azure Blob - the ab
 ## Deployment: Three Flavors
 
 ### Local Development
+
 ```bash
 docker compose -f docker/compose.dev.yml up
 # That's it. API on 3000, MinIO on 9000
@@ -84,12 +86,14 @@ docker compose -f docker/compose.dev.yml up
 ```
 
 ### Staging (if you have it)
+
 - 2-3 API pods (Kubernetes)
 - 1 MinIO instance
 - Monitoring stack running
 - Real-like load testing possible
 
 ### Production
+
 - 3+ API pods with auto-scaling
 - MinIO cluster (3+ nodes, replicated)
 - Full monitoring: Prometheus, Grafana, Jaeger, ELK
@@ -101,14 +105,17 @@ The code doesn't really change. Infrastructure does.
 ## Scaling
 
 ### Horizontal (More Pods)
+
 When CPU goes above 70%, spin up another pod. When it drops below 30%, kill one. Kubernetes does this automatically. Min 2, max 10 pods. Works well.
 
 The tricky part isn't spinning up pods - it's making sure they all talk to the same MinIO without hammering it.
 
 ### Vertical (Bigger Pods)
+
 Running out of headroom on current size? Double the CPU/RAM. Less common than horizontal scaling, but necessary sometimes.
 
 ### Caching (Reduce Work)
+
 - CDN caches popular files (Cloudflare/CloudFront)
 - API layer can cache metadata
 - But with variable latency, caching doesn't solve the fundamental problem - you still have to wait for large files
@@ -116,12 +123,15 @@ Running out of headroom on current size? Double the CPU/RAM. Less common than ho
 ## When Things Break
 
 ### Circuit Breaker
+
 If MinIO is having issues (latency spikes, errors), stop hammering it with requests. Return cached data or error message instead. After 30 seconds, try again slowly.
 
 Real implementation: if 5 consecutive requests fail, open the circuit. Close after 30s if test request succeeds.
 
 ### Retry Logic
+
 Connection flaky? Try again.
+
 - First attempt: immediate
 - Second: wait 100ms, try again
 - Third: wait 200ms, try again
@@ -131,11 +141,13 @@ Connection flaky? Try again.
 Exponential backoff. Simple but effective. Stops the cascade of retries.
 
 ### Failover
+
 If primary MinIO node dies, secondary takes over. Should be transparent to clients. Actually works pretty well with MinIO because it handles replication.
 
 ## Observability (The Stuff Nobody Gets Right)
 
 ### What We Actually Care About
+
 - How long are downloads taking? (latency)
 - How many are failing? (error rate)
 - Are we slow because of the app or the storage? (Jaeger traces)
@@ -143,6 +155,7 @@ If primary MinIO node dies, secondary takes over. Should be transparent to clien
 - When things break, what happened? (logs in ELK)
 
 ### Practical Thresholds
+
 - Alert if error rate > 5% (could be real problem)
 - Alert if P99 latency > 30s (user experience issue)
 - Alert if CPU > 85% for 5+ min (need to scale)
@@ -151,6 +164,7 @@ If primary MinIO node dies, secondary takes over. Should be transparent to clien
 We don't alert on everything. That's how you get pager fatigue and people turning off alerts.
 
 ### Dashboards
+
 - Main dashboard: Is the service up? Latency? Errors?
 - Ops dashboard: CPU/Memory/Disk per pod. Connection counts.
 - That's usually enough.
@@ -158,6 +172,7 @@ We don't alert on everything. That's how you get pager fatigue and people turnin
 ## Security (Realistic Version)
 
 Things we do:
+
 - HTTPS only (TLS)
 - Validate file IDs (prevent weird paths like ../../etc/passwd)
 - Rate limiting per IP (prevent abuse)
@@ -165,6 +180,7 @@ Things we do:
 - Don't expose stack traces to clients
 
 Things we probably won't do:
+
 - Encrypt files at rest (if you need that, you're running your own data center)
 - MFA (not for an API)
 - Audit logs for every request (too noisy)
@@ -174,19 +190,22 @@ Pick your battles based on actual risk.
 ## Costs (Real Numbers)
 
 ### Local Development
+
 Free (uses your laptop)
 
 ### Small Staging
+
 - 2 API pods @ $20/month each = $40
 - 1 MinIO instance @ $50/month = $50
 - Monitoring stack @ $30/month = $30
-Total: ~$120/month
+  Total: ~$120/month
 
 ### Small Production
+
 - 3 API pods @ $25/month each = $75
 - 3 MinIO nodes @ $100/month = $300
 - Monitoring stack (full) @ $150/month = $150
-Total: ~$625/month
+  Total: ~$625/month
 
 Rough, but in the ballpark.
 
@@ -221,6 +240,7 @@ We didn't pick these because they're the "best". We picked them because they wor
 ## The Real Challenge
 
 The actual hard part isn't the architecture. It's:
+
 - Getting alerts right (not too loud, not too quiet)
 - Making deployments safe (don't wake people at 3am)
 - Keeping runbooks updated (when did we change that again?)
@@ -239,6 +259,7 @@ Architecture is 20% of the battle. Operations is 80%.
 ## Future
 
 If we needed to scale 10x:
+
 - Shard file storage by customer/region
 - Add read replicas for MinIO
 - Consider multi-cloud (AWS + GCP + Azure)
