@@ -548,6 +548,125 @@ npm run docker:prod  # Start with Docker (production)
 └── eslint.config.mjs
 ```
 
+## CI/CD Pipeline
+
+[![CI/CD Pipeline](https://github.com/ADUTTA108/devops1/actions/workflows/ci.yml/badge.svg)](https://github.com/ADUTTA108/devops1/actions/workflows/ci.yml)
+
+This project uses **GitHub Actions** for continuous integration and deployment. The pipeline runs automatically on every push to `main`/`master` branches and on all pull requests.
+
+### Pipeline Stages
+
+The CI/CD pipeline consists of 5 automated stages:
+
+```
+┌────────────────────────────────────────────────────────┐
+│          GitHub Actions CI/CD Pipeline                 │
+├────────────────────────────────────────────────────────┤
+│                                                         │
+│  [Lint & Format] → [E2E Tests] → [Build Docker]       │
+│  • ESLint          • MinIO         • Dev + Prod        │
+│  • Prettier        • Test Suite    • GHCR Push         │
+│                                                         │
+│  Parallel: [Security Scanning] + [Status Check]       │
+│  • Trivy Scan    • Final Report                        │
+│                                                         │
+└────────────────────────────────────────────────────────┘
+```
+
+#### Stage 1: Lint & Format (10 min)
+
+- Runs ESLint to check code quality
+- Runs Prettier to check formatting
+- Uses Node.js cache for speed
+- Fails fast on any issues
+
+#### Stage 2: E2E Tests (30 min)
+
+- Depends on: Lint stage passing
+- Runs full test suite
+- MinIO S3 service starts automatically
+- Uploads test results as artifacts
+
+#### Stage 3: Build & Push Docker (20 min)
+
+- Depends on: E2E tests passing
+- Builds production Docker image
+- Pushes to GitHub Container Registry
+- Only runs on push events (not PRs)
+
+#### Stage 4: Security Scanning (15 min)
+
+- Runs in parallel with other stages
+- Trivy filesystem vulnerability scan
+- Results uploaded to GitHub Security tab
+
+#### Stage 5: CI Status Check (5 min)
+
+- Validates all stages completed
+- Reports final pipeline status
+- Fails if lint or test stages failed
+
+### Testing Locally Before Pushing
+
+To avoid failed pipeline runs, test locally first:
+
+```bash
+# Check formatting
+npm run format:check
+
+# If formatting needed:
+npm run format
+
+# Run linter
+npm run lint
+
+# If linting issues:
+npm run lint:fix
+
+# Run E2E tests (requires Docker)
+npm run docker:dev
+npm run test:e2e
+```
+
+**Pre-push checklist**:
+
+```bash
+npm run format:check && npm run lint && npm run test:e2e && echo "✅ Ready to push!"
+```
+
+### Viewing Pipeline Results
+
+**In GitHub**:
+
+1. Go to your repository → **Actions** tab
+2. Click on the workflow run
+3. View each stage's logs and results
+4. Check artifacts: **Artifacts** → **test-results**
+
+**Check Docker images**: Packages section → Select image → View tags
+
+### Troubleshooting
+
+**Lint/Format failures**:
+
+```bash
+npm run lint:fix
+npm run format
+git add .
+git commit -m "style: fix linting and formatting"
+git push
+```
+
+**E2E test failures**:
+
+- Run locally: `npm run docker:dev` then `npm run test:e2e`
+- Check GitHub Actions logs for detailed error messages
+
+**Docker build failures**:
+
+- Verify Node.js version: `node --version` (need >= 24.10.0)
+- Test locally: `docker build -f docker/Dockerfile.prod -t test .`
+
 ## Security Features
 
 - Request ID tracking for distributed tracing
@@ -557,6 +676,24 @@ npm run docker:prod  # Start with Docker (production)
 - Input validation with Zod schemas
 - Path traversal prevention for S3 keys
 - Graceful shutdown handling
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- Development setup instructions
+- Git workflow and branch naming
+- Code style guidelines
+- Testing requirements
+- CI/CD pipeline explanation
+- Debugging tips
+
+**Quick start**:
+
+```bash
+# Test before pushing
+npm run format:check && npm run lint && npm run test:e2e
+```
 
 ## License
 

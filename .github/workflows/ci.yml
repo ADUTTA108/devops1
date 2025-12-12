@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,37 +6,81 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
-    name: Lint
+    name: Lint & Format
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container:
       image: node:24-slim
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline
 
       - name: Run ESLint
         run: npm run lint
 
-      - name: Check formatting
+      - name: Check code formatting
         run: npm run format:check
 
   test:
     name: E2E Tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     needs: lint
+    services:
+      minio:
+        image: minio/minio:latest
+        options: >
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 9000:9000
+          - 9001:9001
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
     container:
       image: node:24-slim
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline
+
+      - name: Initialize MinIO bucket
+        run: |
+          npm install -g minio-client
+          mc config host add minio http://minio:9000 minioadmin minioadmin
+          mc mb minio/downloads --ignore-existing
+          mc version enable minio/downloads
+        continue-on-error: true
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -44,7 +88,10 @@ jobs:
           NODE_ENV: development
           PORT: 3000
           S3_REGION: us-east-1
-          S3_BUCKET_NAME: ""
+          S3_ENDPOINT: http://minio:9000
+          S3_ACCESS_KEY_ID: minioadmin
+          S3_SECRET_ACCESS_KEY: minioadmin
+          S3_BUCKET_NAME: downloads
           S3_FORCE_PATH_STYLE: "true"
           SENTRY_DSN: ""
           OTEL_EXPORTER_OTLP_ENDPOINT: ""
@@ -52,24 +99,97 @@ jobs:
           RATE_LIMIT_WINDOW_MS: "60000"
           RATE_LIMIT_MAX_REQUESTS: "100"
           CORS_ORIGINS: "*"
+          DOWNLOAD_DELAY_MIN_MS: "1000"
+          DOWNLOAD_DELAY_MAX_MS: "3000"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 30
 
   build:
-    name: Build Docker Image
+    name: Build & Push Docker Image
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     needs: test
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image (Prod)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile.prod
-          push: false
-          tags: delineate-hackathon-challenge:${{ github.sha }}
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: lint
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  status:
+    name: CI Status Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [lint, test, build]
+    if: always()
+    steps:
+      - name: Check job status
+        run: |
+          if [ "${{ needs.lint.result }}" = "failure" ] || [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "❌ CI Pipeline failed!"
+            exit 1
+          fi
+          echo "✅ CI Pipeline passed!"
