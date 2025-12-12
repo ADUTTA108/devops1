@@ -65,9 +65,11 @@ jobs:
           docker run --rm \
             --network host \
             minio/mc:latest \
-            /bin/sh -c \
-            'mc alias set myminio http://localhost:9000 minioadmin minioadmin && \
-             mc mb myminio/downloads --ignore-existing'
+            mc alias set myminio http://localhost:9000 minioadmin minioadmin
+          docker run --rm \
+            --network host \
+            minio/mc:latest \
+            mc mb myminio/downloads --ignore-existing
 
       - name: Run E2E tests
         env:
