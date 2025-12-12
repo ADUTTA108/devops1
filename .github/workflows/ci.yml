@@ -35,17 +35,19 @@ jobs:
     services:
       minio:
         image: minio/minio:latest
-        ports:
-          - 9000:9000
-          - 9001:9001
         env:
           MINIO_ROOT_USER: minioadmin
           MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+          - 9001:9001
         options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 10s --health-timeout 5s --health-retries 5
-        volumes:
-          - minio_data:/data
+          --entrypoint sh
+          --health-cmd "curl -f http://localhost:9000/minio/health/live ||
+          exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -59,14 +61,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for MinIO
+      - name: Start MinIO server
         run: |
-          timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live; do sleep 2; done'
+          docker exec ${{ job.services.minio.id }} minio server /data &
+          sleep 5
+
+      - name: Wait for MinIO health
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live; do echo "Waiting for MinIO..."; sleep 2; done'
 
       - name: Create MinIO bucket
         run: |
-          npx minio-cli alias set myminio http://localhost:9000 minioadmin minioadmin
-          npx minio-cli mb myminio/downloads --ignore-existing
+          docker exec ${{ job.services.minio.id }} \
+            bash -c 'export MINIO_ROOT_USER=minioadmin && export MINIO_ROOT_PASSWORD=minioadmin && /usr/bin/mc alias set myminio http://localhost:9000 minioadmin minioadmin && /usr/bin/mc mb myminio/downloads --ignore-existing'
 
       - name: Run E2E tests
         env:
