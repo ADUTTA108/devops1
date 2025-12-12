@@ -19,14 +19,29 @@ services:
       - S3_BUCKET_NAME=downloads
       - S3_FORCE_PATH_STYLE=true
     depends_on:
-      delineate-jaeger:
-        condition: service_started
       delineate-minio:
         condition: service_healthy
       delineate-minio-init:
         condition: service_completed_successfully
     networks:
       - delineate-network
+
+  delineate-frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/.env:/app/.env
+    environment:
+      - VITE_API_URL=http://localhost:3000
+      - VITE_JAEGER_URL=http://localhost:16686
+    networks:
+      - delineate-network
+    depends_on:
+      - delineate-app
 
   delineate-minio:
     image: minio/minio:latest
@@ -65,8 +80,8 @@ services:
   delineate-jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
-      - "16686:16686"
       - "4318:4318"
+      - "16686:16686"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
