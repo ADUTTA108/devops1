@@ -1,4 +1,4 @@
-name: delineate
+name: delineate-prod
 
 services:
   delineate-app:
